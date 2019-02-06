@@ -11,7 +11,6 @@ Damping for quantile estimation as proposed in original Vegas Paper by Lepage.
 @qstruct LepageDamping{T}(;
     alpha::T=1) <: VegasDamping
 
-# TODO renames, this is not really Vegas algorithm
 @settable @qstruct Vegas{RNG,REG}(
         neval::Int=10^5;
         niter::Int=10,
@@ -102,11 +101,19 @@ struct VegasHist{N,D,NT,T}
     sum2    ::Base.RefValue{T}
 end
 
-struct VegasVR{N,D,T}
+struct VegasVR{NFX,N,D,FX}
     grid::VegasGrid{N,D}
-    values::Vector{T}
-    vars::Vector{T}
+    values::Vector{FX}
+    vars::Vector{FX}
     neval::Int64
+end
+
+function ftype(vr::VegasVR{NFX,N,D,FX}) where {NFX,N,D,FX}
+    FX
+end
+
+function ntype(vr::VegasVR{NFX,N,D,FX}) where {NFX,N,D,FX}
+    NFX
 end
 
 @qstruct CDF{P,V}(
@@ -162,16 +169,13 @@ function midpoint(grid::VegasGrid)
     midpoint(domain(grid))
 end
 
-function init_vegas_hist(f, vr)
-    x = midpoint(vr.grid)
-    y = f(x)
-    T = typeof(float.(y))
-    NT = typeof(float(norm(y)))
+function init_vegas_hist(f, vr::VegasVR{NFX}) where {NFX}
+    T = ftype(vr)
     bincounts = map(vr.grid.boundaries) do walls
         length(walls) - 1
     end
     normsums = map(bincounts) do nbins
-        fill(zero(NT), nbins)
+        fill(zero(NFX), nbins)
     end
     counts = map(bincounts) do nbins
         fill(zero(Int64), nbins)
@@ -263,7 +267,8 @@ function update_vegasvr(vr::VegasVR, h::VegasHist, alg::Vegas)
     val, var, neval = estimate_integral(h)
     values = push!(copy(vr.values), val)
     vars   = push!(copy(vr.vars  ), var)
-    VegasVR(grid, values, vars, vr.neval + neval)
+    VR = typeof(vr)
+    VR(grid, values, vars, vr.neval + neval)
 end
 
 function estimate_pdf(h::VegasHist, axis::Int, ::NoDamping)
@@ -334,14 +339,17 @@ function equidistant_grid(dom::Domain, size)
     VegasGrid(bdries)
 end
 
-function initvr(f, dom::Domain, alg::Vegas)
+function initvr(f, dom::Domain{N,D}, alg::Vegas) where {N,D}
     size = default_grid_size(dom, alg.nbins)
     iq = equidistant_grid(dom, size)
     s = draw_x_index_cell(alg.rng, iq)
-    y = (f(s.position).^2) ./ 2
-    T = typeof(y)
+    x = midpoint(dom)
+    y = f(x).^2 ./ 2
+    n = norm(y)
+    FX = typeof(y)
+    NFX = typeof(n)
     neval = 0
-    VegasVR(iq, T[], T[], neval)
+    VegasVR{NFX,N,D,FX}(iq, FX[],FX[],neval)
 end
 
 function tune(f, vr::VegasVR, alg::Vegas)
@@ -364,7 +372,7 @@ end
 #         ret
 #     end
 # end
-function combine_scalar(val1, var1, val2, var2)
+function _combine_scalar(val1, var1, val2, var2)
     p1 = 1/var1
     p2 = 1/var2
     wt1  = p1 / (p1 + p2)
@@ -385,8 +393,8 @@ function combine_scalar(val1, var1, val2, var2)
     T(ret)
 end
 
-function combine_vec(val1, var1, val2, var2)
-    pairs = combine_scalar.(val1, var1, val2, var2)
+function _combine_vec(val1, var1, val2, var2)
+    pairs = _combine_scalar.(val1, var1, val2, var2)
     first.(pairs), last.(pairs)
 end
 
@@ -395,9 +403,9 @@ function combine(nt1, nt2) # named tuple val var
     val2, var2 = nt2
     
     value, var = if nt1.value isa AbstractVector
-        combine_vec(val1,var1,val2,var2)
+        _combine_vec(val1,var1,val2,var2)
     else
-        combine_scalar(val1,var1,val2,var2)
+        _combine_scalar(val1,var1,val2,var2)
     end
     (value=value, var=var)
 end
@@ -406,15 +414,6 @@ function finish_integral(vr::VegasVR, alg::Vegas)
     index = (alg.ndrop+1):length(vr.values)
     values = vr.values[index]
     vars = vr.vars[index]
-    precs = map(vars) do var
-        1 ./ var
-    end
-    var = 1 ./ sum(precs)
-    std = sqrt.(var)
-    weighted_values = map(precs, values) do p, val
-        var .* p .* val
-    end
-    value = sum(weighted_values)
     pairs = map(values, vars) do val, var
         (value=val, var=var)
     end

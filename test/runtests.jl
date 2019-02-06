@@ -38,7 +38,6 @@ end
     @test isconsistent(4π/3, est)
 end
 
-
 @testset "std bernoulli" begin
     p = 0.1 + 0.8*rand()
     f = x -> 0 <= x <= p
@@ -57,10 +56,20 @@ end
     @test isconsistent(true_value, est)
 end
 
-ALGS = [Vegas(), MCVanilla()]
+ALGS = [Vegas(), MCVanilla(), CubaAlg(vegas), HCubatureAlg()]
+@testset "Inferred" begin
+    f_scalar = x -> x[1]^2
+    f_vec    = x -> @SVector[1.,2,3]
+    dom = Domain((-pi, 1))
+    for alg in ALGS
+        @inferred ∫(f_scalar, dom, alg)
+        @inferred ∫(f_vec, dom, alg)
+    end
+end
+
 
 @testset "RNG Reproducibility" begin
-    for alg in ALGS
+    for alg in [Vegas(), MCVanilla()]
         @set! alg.rng = MersenneTwister(1)
         res1 = ∫(cos, (0,1), alg)
         @set! alg.rng = MersenneTwister(1)

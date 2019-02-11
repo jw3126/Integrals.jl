@@ -78,7 +78,7 @@ end
     for _ in 1:p.neval
         s = draw(GLOBAL_RNG, dom)
         pt =  s.position
-        y = f(x) * s.weight
+        y = f(pt) * s.weight
         x = pt[p.axis]
         push!(xs, x)
         push!(ys, y)

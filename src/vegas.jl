@@ -62,6 +62,8 @@ function Base.CartesianIndices(s::VegasGrid)
     CartesianIndices(axes(s))
 end
 function Base.LinearIndices(s::VegasGrid)
+    # TODO these will overflow quickly as dimension of problem
+    # becomes large
     LinearIndices(axes(s))
 end
 
@@ -301,11 +303,12 @@ function estimate_pdf(h::VegasHist, axis::Int, r::LepageDamping)
         ret = ((p - 1) / log(p))^r.alpha
         if iszero(p)
             zero(ret)
+        elseif isone(p)
+            one(ret)
         else
             ret
         end
     end
-
     pdf = normalize!(updf, 1)
     @assert !any(isnan.(pdf))
     (pdf, true)
@@ -381,7 +384,7 @@ function _combine_scalar(val1, var1, val2, var2)
     var = (wt1^2)*var1 + (wt2^2)*var2
     T = typeof((val, var))
     ret = if iszero(var1) & iszero(var2)
-        @assert val1 ≈ val2
+        @check val1 ≈ val2
         (val1, var1)
     elseif iszero(var1)
         (val1, var1)

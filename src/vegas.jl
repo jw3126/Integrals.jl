@@ -252,9 +252,7 @@ end
 
 function estimate_integral(h::VegasHist)
     count = sum(h.counts[1])::Int64
-    mean, var = mean_var(sum=h.sum[],
-                         sum2=h.sum2[],
-                         count=count)
+    mean, var = mean_var(h.sum[], h.sum2[], count)
     (value = mean, var=var, neval=count)
 end
 
@@ -430,7 +428,7 @@ function integral_kernel(f, dom::Domain, alg::Vegas)
 end
 
 function integral_kernel(f, dom::VegasGrid, alg::MCVanilla)
-    mc_kernel(f, alg.rng, dom, neval=alg.neval)
+    mc_kernel(f, alg.rng, dom, alg.neval)
 end
 
 function canonicalize(f, dom::VegasGrid, alg::MCVanilla)

@@ -78,11 +78,11 @@ function integral(f, dom, alg=Vegas())
     integral_kernel(f2, dom2, alg2)
 end
 
-function canonicalize(f, dom, alg)
+function canonicalize(f::F, dom, alg) where {F}
     f, Domain(dom), alg
 end
 
-function canonicalize(f, I::NTuple{2,Number}, alg)
+function canonicalize(f::F, I::NTuple{2,Number}, alg) where {F}
     f_v = f ∘ first
     dom = Domain(I)
     f_v, dom, alg
@@ -90,8 +90,8 @@ end
 
 const ∫ = integral
 
-function integral_kernel(f, dom::Domain, alg::MCVanilla)
-    mc_kernel(f, alg.rng, dom, neval=alg.neval)
+function integral_kernel(f::F, dom::Domain, alg::MCVanilla) where {F}
+    mc_kernel(f, alg.rng, dom, alg.neval)
 end
 function draw(rng, dom::Domain)
     vol = volume(dom)
@@ -100,14 +100,14 @@ function draw(rng, dom::Domain)
 end
 
 """
-    mc_kernel(f, rng::AbstractRNG, dom; neval)
+    mc_kernel(f, rng::AbstractRNG, dom, neval)
 
 Monte Carlo integration of function `f` over `dom`.
 `dom` must support the following methods:
 * volume(dom): Return the volume of dom
 * draw(rng, dom): Return an object with properties `position::SVector`, `weight::Real`.
 """
-function mc_kernel(f, rng::AbstractRNG, dom; neval)
+function mc_kernel(f::F, rng::AbstractRNG, dom, neval::Integer) where {F}
     N = neval
     x = uniform(rng, dom)
     y = float(f(x)) * volume(dom)
@@ -120,11 +120,11 @@ function mc_kernel(f, rng::AbstractRNG, dom; neval)
         sum2 += y.^2
     end
     
-    mean, var = mean_var(sum=sum,sum2=sum2,count=N)
+    mean, var = mean_var(sum,sum2,N)
     (value = mean, std=sqrt.(var), neval=N)
 end
 
-function mean_var(;sum, sum2, count)
+function mean_var(sum, sum2, count::Integer)
     mean = sum ./ count
     mean2 = sum2 ./ count
     var = (mean2 .- mean.^2) ./ count
@@ -132,15 +132,15 @@ function mean_var(;sum, sum2, count)
     (mean = mean, var=var)
 end
 
-function mc_kernel(f, p::ParallelRNG, dom; neval)
+function mc_kernel(f::F, p::ParallelRNG, dom, neval::Integer) where {F}
     rngs = p.rngs
-    res1 = mc_kernel(f, rngs[1], dom, neval=2)
+    res1 = mc_kernel(f, rngs[1], dom, 2)
     T = typeof(res1)
     nthreads = length(rngs)
     results = Vector{T}(undef, nthreads)
     neval_i = ceil(Int, neval / nthreads)
     @threads for i in 1:nthreads
-        res = mc_kernel(f, rngs[i], dom, neval=neval_i)
+        res = mc_kernel(f, rngs[i], dom, neval_i)
         results[i] = res
     end
     fuseall(results)

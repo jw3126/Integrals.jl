@@ -5,8 +5,6 @@ version = "0.1.0"
 
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
-Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1"
-HCubature = "19dc6840-f33b-545b-b366-655c7e3ffd49"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 QuickTypes = "ae2dfa86-617c-530c-b392-ef20fdad97bb"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -22,4 +20,4 @@ HCubature = "19dc6840-f33b-545b-b366-655c7e3ffd49"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test", "Cuba", "HCubature"]
